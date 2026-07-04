@@ -15,6 +15,6 @@
     "seed:site-data": "npm run seed:site-data -w backend"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^10.0.3"
   }
 }
