@@ -26,11 +26,12 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           RESEND_FROM: ${{ vars.RESEND_FROM || 'orders@pineneedledesigns.store' }}
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
         with:
           host: ${{ secrets.DO_HOST }}
           username: ${{ secrets.DO_USER }}
           key: ${{ secrets.DO_SSH_KEY }}
-          envs: NODE_ENV,PAYPAL_BOOKING_DEPOSITS_ENABLED,PAYPAL_CLIENT_ID,PAYPAL_CLIENT_SECRET,RESEND_API_KEY,RESEND_FROM,SESSION_SECRET
+          envs: NODE_ENV,PAYPAL_BOOKING_DEPOSITS_ENABLED,PAYPAL_CLIENT_ID,PAYPAL_CLIENT_SECRET,RESEND_API_KEY,RESEND_FROM,SESSION_SECRET,MONGODB_URI
           script: |
             set -e
             cd ~/pineneedledesigns.website
@@ -38,5 +39,5 @@ jobs:
             git reset --hard origin/main
             git clean -fd
             npm ci --omit=dev --ignore-scripts
-            pm2 restart server --update-env
+            pm2 startOrRestart ecosystem.config.cjs --update-env
             pm2 save

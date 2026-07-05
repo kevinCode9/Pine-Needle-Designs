@@ -1,0 +1,106 @@
+/* Base grid utility */
+.grid {
+    display: grid;
+    gap: 14px;
+}
+
+/* Collections */
+.collections .card {
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    background: var(--white);
+}
+
+.collections .card-link {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    color: inherit;
+    text-decoration: none;
+}
+
+.collections .card.disabled,
+.card.disabled {
+    opacity: .55;
+    filter: grayscale(.5);
+    cursor: not-allowed;
+}
+
+.collections .media {
+    aspect-ratio: 4 / 3;
+    background: linear-gradient(180deg, var(--line), var(--collection-media-end));
+}
+
+.collections .body {
+    padding: 12px 14px;
+}
+
+/* Standard column counts */
+
+.grid-2 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.grid-3 {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+.grid-4 {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.grid-5 {
+    grid-template-columns: repeat(5, 1fr);
+}
+
+.grid-6 {
+    grid-template-columns: repeat(6, 1fr);
+}
+
+.product-lg .media {
+    aspect-ratio: 16 / 10;
+}
+
+.product-lg .body {
+    padding: 16px 16px 20px;
+}
+
+.product-lg .title {
+    font-size: 16pt;
+    margin-bottom: 6px;
+}
+
+.product-lg .price {
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.product-lg .btn {
+    margin-top: 12px;
+}
+
+/* Special cases from your stylesheet */
+body>section:nth-of-type(3) .grid.grid-4 {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+body>section:nth-of-type(5) .grid.grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+
+/* Responsive overrides */
+@media (max-width: 768px) {
+    .grid-3 {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .grid-4 {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .grid-6 {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
