@@ -17,10 +17,11 @@ const productSchema = new mongoose.Schema({
     ref: 'Collection',
     required: true,
   },
-  subcollectionIds: [{
+  subCollectionId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Subcollection',
-  }],
+    default: null,
+  },
   color: { type: String, default: '', trim: true },
   size: { type: String, default: '', trim: true },
   importantNotes: { type: String, default: '', trim: true },
@@ -64,5 +65,6 @@ const productSchema = new mongoose.Schema({
 });
 
 productSchema.index({ collectionId: 1, sortOrder: 1 });
+productSchema.index({ subCollectionId: 1 });
 
 export const Product = mongoose.model('Product', productSchema);

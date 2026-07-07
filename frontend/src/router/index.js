@@ -15,6 +15,7 @@ import DashboardOrders from '../components/dashboard/DashboardOrders.vue'
 
 import { collectionPages, sitePages } from '../data/siteData'
 import DashboardItemCreation from '../components/dashboard/DashboardItemCreation.vue'
+import { useAuthStore } from '../stores/auth.js'
 
 const routes = [
   {
@@ -53,6 +54,7 @@ const routes = [
     meta: {
       dashboard: true,
       hideLayout: true,
+      requiresAuth: true,
     },
     children: [
       {
@@ -141,6 +143,29 @@ const router = createRouter({
       behavior: 'instant',
     }
   },
+})
+
+router.beforeEach(async (to) => {
+  const requiresAuth = to.matched.some((record) => record.meta.requiresAuth)
+
+  if (!requiresAuth) {
+    return true
+  }
+
+  const authStore = useAuthStore()
+  const isAuthed = await authStore.verifySession()
+
+  if (!isAuthed) {
+    authStore.openLoginDialog(to.fullPath)
+
+    return {
+      path: '/',
+      query: { redirect: to.fullPath },
+      hash: '#dashboard-signin',
+    }
+  }
+
+  return true
 })
 
 export default router

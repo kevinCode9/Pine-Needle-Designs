@@ -127,8 +127,8 @@ export const deleteSubcollection = async (req, res) => {
   }
 
   await Product.updateMany(
-    { collectionId: collection._id, subcollectionIds: subcollection._id },
-    { $pull: { subcollectionIds: subcollection._id } },
+    { collectionId: collection._id, subCollectionId: subcollection._id },
+    { $unset: { subCollectionId: '' } },
   );
 
   res.json({ success: true });

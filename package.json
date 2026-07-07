@@ -5,7 +5,7 @@
     "backend"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "dev": "concurrently \"npm run dev -w backend\" \"npm run dev -w frontend -- --host\"",
     "dev:full": "npm run dev",
     "dev:vite": "npm run dev -w frontend",
     "build": "npm run build -w frontend",
@@ -16,4 +16,5 @@
   "devDependencies": {
     "concurrently": "^9.2.1"
   }
+  
 }

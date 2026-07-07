@@ -95,7 +95,10 @@ export const deleteCollection = async (req, res) => {
   const uncategorizedCount = await Product.countDocuments({ collectionId: uncategorized._id });
   const moveUpdates = products.map((product, index) => Product.updateOne(
     { _id: product._id },
-    { $set: { collectionId: uncategorized._id, sortOrder: uncategorizedCount + index } },
+    {
+      $set: { collectionId: uncategorized._id, sortOrder: uncategorizedCount + index },
+      $unset: { subCollectionId: '' },
+    },
   ));
 
   await Promise.all(moveUpdates);

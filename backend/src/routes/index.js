@@ -7,16 +7,19 @@ import bookingRouter from './booking.js';
 import healthRouter from './health.js';
 import dashboardRouter from './dashboard.js';
 import ordersRouter from './orders.js';
+import authRouter from './auth.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 
-router.use('/collections', collectionsRouter);
-router.use('/products', productsRouter);
+router.use('/auth', authRouter);
+router.use('/collections', requireAuth, collectionsRouter);
+router.use('/products', requireAuth, productsRouter);
 router.use('/cart', cartRouter);
 router.use('/checkout', checkoutRouter);
 router.use('/booking-deposit', bookingRouter);
 router.use('/health', healthRouter);
-router.use('/dashboard', dashboardRouter);
-router.use('/orders', ordersRouter);
+router.use('/dashboard', requireAuth, dashboardRouter);
+router.use('/orders', requireAuth, ordersRouter);
 
 export default router;

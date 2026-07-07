@@ -18,7 +18,9 @@ const request = async (url, options = {}) => {
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(data.error || data.message || 'Request failed.');
+    const error = new Error(data.error || data.message || 'Request failed.');
+    error.status = response.status;
+    throw error;
   }
 
   return data;
@@ -33,6 +35,14 @@ export const dashboardApi = {
     body: JSON.stringify({ status }),
   }),
   getGroupedProducts: () => request('/api/products/grouped'),
+  getProducts: (params = {}) => {
+    const search = new URLSearchParams()
+    if (params.collectionId) search.set('collectionId', params.collectionId)
+    if (params.subCollectionId) search.set('subCollectionId', params.subCollectionId)
+    const query = search.toString()
+    return request(`/api/products${query ? `?${query}` : ''}`)
+  },
+  getProduct: (id) => request(`/api/products/${id}`),
   getCollections: () => request('/api/collections'),
   createCollection: (name) => request('/api/collections', {
     method: 'POST',

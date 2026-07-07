@@ -1,13 +1,25 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { dashboardApi } from '../../api/dashboard.js'
+import { useSubcollections } from '../../composables/useSubcollections.js'
 
 const router = useRouter()
 const collections = ref([])
+const pageLoading = ref(true)
 const loading = ref(false)
 const error = ref('')
+const fieldErrors = reactive({
+  subCollectionId: '',
+})
 const photoFiles = ref([])
+
+const {
+  subcollections,
+  loading: subcollectionsLoading,
+  error: subcollectionsError,
+  loadSubcollections,
+} = useSubcollections()
 
 const form = reactive({
   name: '',
@@ -21,7 +33,10 @@ const form = reactive({
   freeShipping: false,
   outOfStock: false,
   customProperties: [],
+  subCollectionId: '',
 })
+
+const requiresSubcollection = computed(() => subcollections.value.length > 0)
 
 const revokePhotoPreview = (photo) => {
   if (photo?.previewUrl) {
@@ -86,7 +101,9 @@ const resetForm = () => {
   form.freeShipping = false
   form.outOfStock = false
   form.customProperties = []
+  form.subCollectionId = ''
   clearPhotos()
+  fieldErrors.subCollectionId = ''
   error.value = ''
 }
 
@@ -111,6 +128,7 @@ const buildProductFormData = () => {
       }))
       .filter((property) => property.name),
   ))
+  formData.append('subCollectionId', form.subCollectionId || '')
 
   photoFiles.value.forEach(({ file }) => {
     formData.append('photos', file)
@@ -126,9 +144,30 @@ const loadCollections = async () => {
       || collections.value[0]?._id
       || ''
   }
+
+  await loadSubcollections(form.collectionId)
+}
+
+const handleCollectionChange = async () => {
+  form.subCollectionId = ''
+  fieldErrors.subCollectionId = ''
+  await loadSubcollections(form.collectionId)
 }
 
 const submitForm = async () => {
+  fieldErrors.subCollectionId = ''
+
+  if (requiresSubcollection.value && !form.subCollectionId) {
+    fieldErrors.subCollectionId = 'Please select a subcollection for this collection.'
+    error.value = 'Please fix the highlighted fields before submitting.'
+    return
+  }
+
+  if (subcollectionsLoading.value) {
+    error.value = 'Subcollections are still loading. Please wait a moment.'
+    return
+  }
+
   loading.value = true
   error.value = ''
 
@@ -144,12 +183,32 @@ const submitForm = async () => {
 }
 
 onMounted(async () => {
+  pageLoading.value = true
+  error.value = ''
+
   try {
     await loadCollections()
   } catch (err) {
     error.value = err.message
+  } finally {
+    pageLoading.value = false
   }
 })
+
+watch(
+  () => form.collectionId,
+  async (collectionId) => {
+    try {
+      await loadSubcollections(collectionId)
+      const allowedIds = new Set(subcollections.value.map((item) => String(item._id)))
+      if (!allowedIds.has(String(form.subCollectionId))) {
+        form.subCollectionId = ''
+      }
+    } catch (err) {
+      error.value = err.message
+    }
+  },
+)
 </script>
 
 <template>
@@ -162,8 +221,9 @@ onMounted(async () => {
     </div>
 
     <p v-if="error" class="error-banner">{{ error }}</p>
+    <p v-if="pageLoading" class="status-text">Loading form...</p>
 
-    <form class="item-form" @submit.prevent="submitForm">
+    <form v-else class="item-form" @submit.prevent="submitForm">
       <section class="card">
         <h2>Basic Information</h2>
 
@@ -175,7 +235,7 @@ onMounted(async () => {
 
           <div class="field">
             <label>Collection *</label>
-            <select v-model="form.collectionId" required>
+            <select v-model="form.collectionId" required @change="handleCollectionChange">
               <option
                 v-for="collection in collections"
                 :key="collection._id"
@@ -184,6 +244,31 @@ onMounted(async () => {
                 {{ collection.isSystem ? 'Uncategorized' : collection.name }}
               </option>
             </select>
+          </div>
+
+          <div v-if="requiresSubcollection || subcollectionsLoading" class="field field--full">
+            <label>Subcollection *</label>
+            <select
+              v-model="form.subCollectionId"
+              required
+              :disabled="subcollectionsLoading || loading"
+            >
+              <option value="">
+                {{ subcollectionsLoading ? 'Loading subcollections...' : 'Select a subcollection' }}
+              </option>
+              <option
+                v-for="subcollection in subcollections"
+                :key="subcollection._id"
+                :value="subcollection._id"
+              >
+                {{ subcollection.name }}
+              </option>
+            </select>
+            <p v-if="subcollectionsError" class="field-error">{{ subcollectionsError }}</p>
+            <p v-else-if="fieldErrors.subCollectionId" class="field-error">{{ fieldErrors.subCollectionId }}</p>
+            <p v-else class="hint">
+              Manage subcollections from Items → Manage Collections → Subcollections.
+            </p>
           </div>
 
           <div class="field">
@@ -313,7 +398,7 @@ onMounted(async () => {
           Clear
         </button>
 
-        <button type="submit" class="submit-btn" :disabled="loading || !photoFiles.length">
+        <button type="submit" class="submit-btn" :disabled="loading || pageLoading || subcollectionsLoading || !photoFiles.length">
           {{ loading ? 'Creating...' : 'Create Item' }}
         </button>
       </div>
@@ -365,6 +450,16 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 16px;
+}
+
+.field--full {
+  grid-column: 1 / -1;
+}
+
+.hint {
+  margin: 8px 0 0;
+  color: #666;
+  font-size: 0.92rem;
 }
 
 .field {
@@ -494,6 +589,17 @@ textarea {
   padding: 12px 16px;
   border-radius: 8px;
   margin-bottom: 16px;
+}
+
+.status-text {
+  color: #666;
+  margin-bottom: 16px;
+}
+
+.field-error {
+  margin: 8px 0 0;
+  color: #8a1f1f;
+  font-size: 0.9rem;
 }
 
 @media (max-width: 768px) {

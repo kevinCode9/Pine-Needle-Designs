@@ -1,5 +1,39 @@
 <template>
   <div class="home-page">
+    <section id="dashboard-signin" class="dashboard-signin">
+      <div class="container dashboard-signin__content">
+        <h2>Dashboard Access</h2>
+        <p v-if="redirectPath" class="dashboard-signin__hint">
+          Sign in with your authorized Gmail address to continue to the dashboard.
+        </p>
+        <p v-else class="dashboard-signin__hint">
+          Authorized team members must sign in with Gmail to manage products, collections, and orders.
+        </p>
+
+        <p v-if="authStore.isAuthenticated" class="dashboard-signin__status">
+          Signed in as {{ authStore.user.email }}
+        </p>
+
+        <button
+          v-if="!authStore.isAuthenticated"
+          type="button"
+          class="btn dashboard-signin__button"
+          @click="authStore.openLoginDialog(redirectPath)"
+        >
+          Sign In
+        </button>
+
+        <button
+          v-else
+          type="button"
+          class="btn dashboard-signin__button dashboard-signin__button--secondary"
+          @click="handleSignOut"
+        >
+          Sign Out
+        </button>
+      </div>
+    </section>
+
     <section v-if="homeSections.length" id="about">
       <div class="container">
         <h2 class="section-title">Highlighted Collections</h2>
@@ -97,16 +131,30 @@
     </section>
 
     <ImageSlider />
-
   </div>
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import CollectionProductSlider from '../components/CollectionProductSlider.vue'
 import ImageSlider from '../components/ImageSlider.vue'
+import { useAuthStore } from '../stores/auth.js'
 import { collectionPages, homeSections, otherCollections } from '../data/siteData'
 import { preloadImages, preloadImagesOnIdle } from '../utils/mediaPreloader'
+
+const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
+
+const redirectPath = computed(() => (
+  typeof route.query.redirect === 'string' ? route.query.redirect : ''
+))
+
+const handleSignOut = async () => {
+  await authStore.logout()
+  await router.replace({ path: '/', hash: '#dashboard-signin' })
+}
 
 const featuredCollectionSlugs = [
   'shirts',
@@ -127,7 +175,18 @@ const isComingSoonImage = (src) => String(src).includes('/comingsoon/')
 const uppercase = (value) => String(value).toUpperCase()
 const itemCountLabel = (count) => `${count} ITEMS`
 
-onMounted(() => {
+onMounted(async () => {
+  await authStore.initialize()
+
+  if (authStore.isAuthenticated && redirectPath.value) {
+    await router.replace(redirectPath.value)
+    return
+  }
+
+  if (!authStore.isAuthenticated && redirectPath.value) {
+    authStore.openLoginDialog(redirectPath.value)
+  }
+
   const visibleImages = otherCollections.map((collection) => collection.cardImage)
   preloadImages(visibleImages.slice(0, 4))
   preloadImagesOnIdle(visibleImages.slice(4), 3)
@@ -135,6 +194,43 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.dashboard-signin {
+  padding: clamp(32px, 5vw, 56px) 0;
+  background: linear-gradient(180deg, var(--pale-blue), var(--pale-blue-2));
+  border-bottom: 1px solid var(--pale-blue-2);
+}
+
+.dashboard-signin__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+}
+
+.dashboard-signin__content h2 {
+  margin: 0;
+  font-size: clamp(20pt, 3.5vw, 28pt);
+}
+
+.dashboard-signin__hint,
+.dashboard-signin__status {
+  max-width: 640px;
+  margin: 0;
+  color: #666;
+  line-height: 1.6;
+}
+
+.dashboard-signin__button {
+  margin-top: 8px;
+}
+
+.dashboard-signin__button--secondary {
+  background: #fff;
+  color: inherit;
+  border: 1px solid #d8eadb;
+}
+
 .home-product-collections {
   padding: 60px 0 80px;
   background: linear-gradient(180deg, var(--pale-blue-2), var(--page-bg));

@@ -4,6 +4,7 @@ import upload from '../middleware/upload.js';
 import {
   listProducts,
   listProductsGrouped,
+  getProduct,
   createProduct,
   updateProduct,
   deleteProduct,
@@ -24,6 +25,7 @@ const handlePhotoUpload = (req, res, next) => {
 router.get('/grouped', listProductsGrouped);
 router.put('/reorder', reorderProducts);
 router.get('/', listProducts);
+router.get('/:id', getProduct);
 router.post('/', handlePhotoUpload, createProduct);
 router.put('/:id', updateProduct);
 router.delete('/:id', deleteProduct);

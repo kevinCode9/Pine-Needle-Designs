@@ -30,17 +30,32 @@
 
     <CartSidebar />
   </template>
+
+  <LoginDialog @success="handleLoginSuccess" />
 </template>
 
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import GlobalHeader from './components/GlobalHeader.vue'
 import GlobalFooter from './components/GlobalFooter.vue'
 import CartSidebar from './components/CartSidebar.vue'
+import LoginDialog from './components/LoginDialog.vue'
 import { useCartStore } from './stores/cart'
+import { useAuthStore } from './stores/auth.js'
 
 const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
+
+const handleLoginSuccess = async () => {
+  const redirect = authStore.redirectAfterLogin
+    || (typeof route.query.redirect === 'string' ? route.query.redirect : '')
+    || '/dashboard'
+
+  authStore.closeLoginDialog()
+  await router.replace(redirect)
+}
 
 const hideLayout = computed(() => route.meta.hideLayout)
 

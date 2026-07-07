@@ -2,38 +2,33 @@ import { Collection } from '../models/Collection.js';
 import { Product } from '../models/Product.js';
 import { Subcollection } from '../models/Subcollection.js';
 
-const normalizeSubcollectionIds = (value) => {
-  if (typeof value === 'string') {
-    try {
-      return normalizeSubcollectionIds(JSON.parse(value));
-    } catch {
-      return [];
-    }
+const normalizeSubCollectionId = (value) => {
+  if (value === null || value === undefined || value === '') {
+    return null;
   }
 
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.map((id) => String(id || '').trim()).filter(Boolean);
+  const id = String(value).trim();
+  return id || null;
 };
 
-const resolveSubcollectionIds = async (collectionId, subcollectionIds) => {
-  if (!subcollectionIds?.length) {
-    return { ids: [], error: null };
+const resolveSubCollectionId = async (collectionId, subCollectionId, { requireWhenAvailable = false } = {}) => {
+  const id = normalizeSubCollectionId(subCollectionId);
+  const subcollectionCount = await Subcollection.countDocuments({ collectionId });
+
+  if (subcollectionCount > 0 && requireWhenAvailable && !id) {
+    return { id: null, error: 'Subcollection is required for this collection.' };
   }
 
-  const uniqueIds = [...new Set(subcollectionIds)];
-  const subcollections = await Subcollection.find({
-    _id: { $in: uniqueIds },
-    collectionId,
-  }).select('_id');
-
-  if (subcollections.length !== uniqueIds.length) {
-    return { ids: [], error: 'One or more subcollections are invalid for this collection.' };
+  if (!id) {
+    return { id: null, error: null };
   }
 
-  return { ids: subcollections.map((item) => item._id), error: null };
+  const subcollection = await Subcollection.findOne({ _id: id, collectionId }).select('_id');
+  if (!subcollection) {
+    return { id: null, error: 'Subcollection is invalid for this collection.' };
+  }
+
+  return { id: subcollection._id, error: null };
 };
 
 const normalizeCustomProperties = (properties) => {
@@ -71,8 +66,8 @@ const parseRequestBody = (body) => ({
   freeShipping: parseBooleanField(body?.freeShipping),
   outOfStock: parseBooleanField(body?.outOfStock),
   customProperties: normalizeCustomProperties(body?.customProperties),
-  subcollectionIds: body?.subcollectionIds !== undefined
-    ? normalizeSubcollectionIds(body.subcollectionIds)
+  subCollectionId: body?.subCollectionId !== undefined
+    ? normalizeSubCollectionId(body.subCollectionId)
     : undefined,
 });
 
@@ -106,12 +101,17 @@ const validateProductPayload = (body, { requireAll = true } = {}) => {
   };
 };
 
+const productPopulatePaths = [
+  { path: 'collectionId', select: 'name slug isSystem' },
+  { path: 'subCollectionId', select: 'name slug sortOrder collectionId' },
+];
+
 export const listProductsGrouped = async (_req, res) => {
   const collections = await Collection.find().sort({ sortOrder: 1, name: 1 }).lean();
   const subcollections = await Subcollection.find().sort({ sortOrder: 1, name: 1 }).lean();
   const products = await Product.find()
     .populate('collectionId', 'name slug isSystem sortOrder')
-    .populate('subcollectionIds', 'name slug sortOrder')
+    .populate('subCollectionId', 'name slug sortOrder')
     .sort({ sortOrder: 1, name: 1 })
     .lean();
 
@@ -135,13 +135,30 @@ export const listProducts = async (req, res) => {
   if (req.query.collectionId) {
     filter.collectionId = req.query.collectionId;
   }
+  if (req.query.subCollectionId) {
+    filter.subCollectionId = req.query.subCollectionId;
+  }
 
   const products = await Product.find(filter)
     .populate('collectionId', 'name slug isSystem')
+    .populate('subCollectionId', 'name slug sortOrder')
     .sort({ sortOrder: 1, name: 1 })
     .lean();
 
   res.json(products);
+};
+
+export const getProduct = async (req, res) => {
+  const product = await Product.findById(req.params.id)
+    .populate('collectionId', 'name slug isSystem')
+    .populate('subCollectionId', 'name slug sortOrder collectionId')
+    .lean();
+
+  if (!product) {
+    return res.status(404).json({ error: 'Product not found.' });
+  }
+
+  res.json(product);
 };
 
 export const createProduct = async (req, res) => {
@@ -166,7 +183,11 @@ export const createProduct = async (req, res) => {
     return res.status(400).json({ error: 'Collection not found.' });
   }
 
-  const subcollectionResult = await resolveSubcollectionIds(collection._id, body.subcollectionIds);
+  const subcollectionResult = await resolveSubCollectionId(
+    collection._id,
+    body.subCollectionId,
+    { requireWhenAvailable: true },
+  );
   if (subcollectionResult.error) {
     return res.status(400).json({ error: subcollectionResult.error });
   }
@@ -176,7 +197,7 @@ export const createProduct = async (req, res) => {
     name: data.name,
     description: data.description,
     collectionId: collection._id,
-    subcollectionIds: subcollectionResult.ids,
+    subCollectionId: subcollectionResult.id,
     color: data.color,
     size: data.size,
     importantNotes: data.importantNotes,
@@ -189,10 +210,7 @@ export const createProduct = async (req, res) => {
     sortOrder: (maxSort?.sortOrder ?? -1) + 1,
   });
 
-  const populated = await product.populate([
-    { path: 'collectionId', select: 'name slug isSystem' },
-    { path: 'subcollectionIds', select: 'name slug sortOrder' },
-  ]);
+  const populated = await product.populate(productPopulatePaths);
   res.status(201).json(populated);
 };
 
@@ -230,24 +248,30 @@ export const updateProduct = async (req, res) => {
     product.collectionId = collection._id;
   }
 
-  if (body.subcollectionIds !== undefined && req.body?.subcollectionIds !== undefined) {
-    const subcollectionResult = await resolveSubcollectionIds(
+  if (body.subCollectionId !== undefined && req.body?.subCollectionId !== undefined) {
+    const subcollectionResult = await resolveSubCollectionId(
       product.collectionId,
-      body.subcollectionIds,
+      body.subCollectionId,
+      { requireWhenAvailable: true },
     );
     if (subcollectionResult.error) {
       return res.status(400).json({ error: subcollectionResult.error });
     }
-    product.subcollectionIds = subcollectionResult.ids;
+    product.subCollectionId = subcollectionResult.id;
   } else if (data.collectionId && req.body?.collectionId !== undefined) {
-    product.subcollectionIds = [];
+    const subcollectionResult = await resolveSubCollectionId(
+      product.collectionId,
+      null,
+      { requireWhenAvailable: true },
+    );
+    if (subcollectionResult.error) {
+      return res.status(400).json({ error: subcollectionResult.error });
+    }
+    product.subCollectionId = null;
   }
 
   await product.save();
-  const populated = await product.populate([
-    { path: 'collectionId', select: 'name slug isSystem' },
-    { path: 'subcollectionIds', select: 'name slug sortOrder' },
-  ]);
+  const populated = await product.populate(productPopulatePaths);
   res.json(populated);
 };
 
@@ -277,6 +301,7 @@ export const reorderProducts = async (req, res) => {
 
   const products = await Product.find({ collectionId })
     .populate('collectionId', 'name slug isSystem')
+    .populate('subCollectionId', 'name slug sortOrder')
     .sort({ sortOrder: 1, name: 1 })
     .lean();
 
