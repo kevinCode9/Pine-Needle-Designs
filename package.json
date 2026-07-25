@@ -14,6 +14,6 @@
     "start": "npm run start -w backend"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^10.0.4"
   }
 }
