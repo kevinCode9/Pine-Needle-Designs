@@ -10,7 +10,7 @@
   "dependencies": {
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.1",
-    "pinia": "^3.0.4",
+    "pinia": "^4.0.3",
     "vue": "^3.4.4",
     "vue-router": "^4.3.3"
   },
