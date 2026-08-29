@@ -7,7 +7,7 @@
     "dev": "node --watch src/server.js"
   },
   "dependencies": {
-    "@paypal/paypal-server-sdk": "^2.3.0",
+    "@paypal/paypal-server-sdk": "^2.5.0",
     "body-parser": "^2.3.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
